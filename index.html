@@ -1,538 +1,298 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPCS - Cybersecurity Hub</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', sans-serif;
-        }
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+  Upload, 
+  File, 
+  Folder, 
+  Plus, 
+  Image, 
+  Video, 
+  FileText, 
+  Code,
+  Moon,
+  Sun,
+  Tag,
+  X 
+} from 'lucide-react';
 
-        body, html {
-            height: 100%;
-            overflow: hidden;
-            background: #0a1629;
-        }
+const IPCSHost = () => {
+  const [files, setFiles] = useState([]);
+  const [isCreationModalOpen, setIsCreationModalOpen] = useState(false);
+  const [selectedContentType, setSelectedContentType] = useState(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [textContent, setTextContent] = useState('');
+  const [documentTitle, setDocumentTitle] = useState('');
+  const fileInputRef = useRef(null);
 
-        .particles {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
+  // Types de contenu supportés
+  const contentTypes = [
+    { 
+      type: 'image', 
+      icon: <Image className="w-12 h-12 text-blue-500" />,
+      acceptedFormats: 'image/*',
+      description: 'Sélectionnez uniquement des fichiers image (jpg, png, gif, etc.)'
+    },
+    { 
+      type: 'video', 
+      icon: <Video className="w-12 h-12 text-green-500" />,
+      acceptedFormats: 'video/*',
+      description: 'Sélectionnez uniquement des fichiers vidéo (mp4, avi, mov, etc.)'
+    },
+    { 
+      type: 'texte', 
+      icon: <FileText className="w-12 h-12 text-purple-500" />,
+      acceptedFormats: '.txt,.md,.pdf',
+      description: 'Écrivez votre texte ou téléchargez un fichier texte'
+    },
+    { 
+      type: 'fichier', 
+      icon: <File className="w-12 h-12 text-red-500" />,
+      acceptedFormats: '*',
+      description: 'Téléchargez n\'importe quel type de fichier'
+    }
+  ];
 
-        .cyber-lines {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                linear-gradient(90deg, rgba(18, 36, 72, 0.1) 1px, transparent 1px) 0 0,
-                linear-gradient(rgba(18, 36, 72, 0.1) 1px, transparent 1px) 0 0;
-            background-size: 50px 50px;
-            animation: moveLines 15s linear infinite;
-        }
+  const handleFileUpload = (event) => {
+    const uploadedFile = event.target.files[0];
+    if (uploadedFile && documentTitle.trim()) {
+      const newFile = {
+        id: Date.now(),
+        title: documentTitle,
+        name: uploadedFile.name,
+        type: selectedContentType,
+        size: `${(uploadedFile.size / 1024).toFixed(2)} Ko`,
+        uploadDate: new Date().toLocaleDateString(),
+        file: uploadedFile,
+        previewUrl: selectedContentType === 'image' ? URL.createObjectURL(uploadedFile) : null
+      };
+      setFiles([...files, newFile]);
+      setIsCreationModalOpen(false);
+      setDocumentTitle('');
+      setSelectedContentType(null);
+    }
+  };
 
-        @keyframes moveLines {
-            0% { transform: translate(0, 0); }
-            100% { transform: translate(50px, 50px); }
-        }
+  const handleTextSubmit = () => {
+    if (textContent.trim() && documentTitle.trim()) {
+      const newFile = {
+        id: Date.now(),
+        title: documentTitle,
+        name: 'Texte',
+        type: 'texte',
+        size: `${textContent.length} caractères`,
+        uploadDate: new Date().toLocaleDateString(),
+        content: textContent
+      };
+      setFiles([...files, newFile]);
+      setTextContent('');
+      setDocumentTitle('');
+      setIsCreationModalOpen(false);
+      setSelectedContentType(null);
+    }
+  };
 
-        .hexagon-bg {
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 100% 100%, rgba(74, 144, 226, 0.1) 0%, transparent 50%),
-                radial-gradient(circle at 0% 0%, rgba(0, 156, 255, 0.1) 0%, transparent 50%);
-            z-index: 1;
-        }
+  const handleFileView = (file) => {
+    setSelectedFile(file);
+  };
 
-        .container {
-            position: relative;
-            width: 100%;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2;
-        }
+  const renderFilePreview = () => {
+    if (!selectedFile) return null;
 
-        .login-box {
-            background: rgba(13, 25, 48, 0.95);
-            width: 400px;
-            padding: 2.5rem;
-            border-radius: 15px;
-            box-shadow: 0 0 30px rgba(0, 119, 255, 0.2);
-            position: relative;
-            overflow: hidden;
-            animation: fadeIn 0.8s ease-out;
-        }
+    return (
+      <div className={`fixed inset-0 z-50 flex items-center justify-center ${isDarkMode ? 'bg-gray-900 bg-opacity-90' : 'bg-black bg-opacity-70'}`}>
+        <div className={`w-3/4 max-w-4xl ${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white'} rounded-lg p-6 relative`}>
+          <button 
+            onClick={() => setSelectedFile(null)}
+            className={`absolute top-4 right-4 ${isDarkMode ? 'text-white hover:bg-gray-700' : 'text-black hover:bg-gray-100'} p-2 rounded-full`}
+          >
+            <X />
+          </button>
 
-        .login-box::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(
-                45deg,
-                transparent,
-                rgba(74, 144, 226, 0.1),
-                rgba(74, 144, 226, 0.1),
-                transparent
-            );
-            transform: rotate(45deg);
-            animation: shine 3s linear infinite;
-        }
+          <h2 className="text-2xl font-bold mb-4">{selectedFile.title}</h2>
 
-        @keyframes shine {
-            0% { transform: rotate(45deg) translateX(-100%); }
-            100% { transform: rotate(45deg) translateX(100%); }
-        }
+          {selectedFile.type === 'image' && (
+            <img 
+              src={selectedFile.previewUrl} 
+              alt={selectedFile.name} 
+              className="max-w-full max-h-[70vh] mx-auto object-contain"
+            />
+          )}
 
-        .logo-container {
-            text-align: center;
-            margin-bottom: 2rem;
-            position: relative;
-        }
+          {selectedFile.type === 'video' && (
+            <video 
+              controls 
+              className="max-w-full max-h-[70vh] mx-auto"
+              src={URL.createObjectURL(selectedFile.file)}
+            >
+              Votre navigateur ne supporte pas la lecture vidéo.
+            </video>
+          )}
 
-        .logo-container img {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: 3px solid rgba(74, 144, 226, 0.5);
-            padding: 5px;
-            transform: translateY(0);
-            animation: float 3s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-
-        .login-form .form-group {
-            margin-bottom: 1.5rem;
-            position: relative;
-        }
-
-        .login-form label {
-            display: block;
-            color: #4a90e2;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-            letter-spacing: 1px;
-            transform: translateX(0);
-            transition: transform 0.3s ease;
-        }
-
-        .login-form input {
-            width: 100%;
-            padding: 12px;
-            background: rgba(13, 25, 48, 0.8);
-            border: 2px solid rgba(74, 144, 226, 0.3);
-            border-radius: 8px;
-            color: #fff;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .login-form input:focus {
-            outline: none;
-            border-color: #4a90e2;
-            box-shadow: 0 0 15px rgba(74, 144, 226, 0.2);
-            transform: scale(1.02);
-        }
-
-        .login-form .icon {
-            position: absolute;
-            right: 12px;
-            top: 40px;
-            color: #4a90e2;
-            opacity: 0.7;
-        }
-
-        .submit-btn {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(45deg, #1a4d8c, #2a6ac8);
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(74, 144, 226, 0.3);
-        }
-
-        .submit-btn::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
-            transform: rotate(45deg);
-            animation: buttonShine 2s linear infinite;
-        }
-
-        @keyframes buttonShine {
-            0% { transform: rotate(45deg) translateX(-100%); }
-            100% { transform: rotate(45deg) translateX(100%); }
-        }
-
-        .error-message {
-            display: none;
-            color: #ff4b4b;
-            text-align: center;
-            margin-top: 1rem;
-            padding: 0.8rem;
-            background: rgba(255, 75, 75, 0.1);
-            border-radius: 6px;
-            border: 1px solid rgba(255, 75, 75, 0.3);
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Page d'accueil */
-        .home-container {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #0a1629;
-            z-index: 10;
-            padding: 2rem;
-            color: white;
-            animation: slideIn 0.5s ease;
-        }
-
-        @keyframes slideIn {
-            from { transform: translateX(100%); }
-            to { transform: translateX(0); }
-        }
-
-        .home-header {
-            position: relative;
-            padding: 1.5rem;
-            background: rgba(74, 144, 226, 0.1);
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid rgba(74, 144, 226, 0.2);
-        }
-
-        .home-title {
-            font-size: 2rem;
-            color: #4a90e2;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-        }
-
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            padding: 1rem;
-        }
-
-        .dashboard-card {
-            background: rgba(13, 25, 48, 0.95);
-            padding: 2rem;
-            border-radius: 15px;
-            border: 1px solid rgba(74, 144, 226, 0.2);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .dashboard-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(45deg, transparent, rgba(74, 144, 226, 0.1), transparent);
-            transform: translateX(-100%);
-            transition: transform 0.6s ease;
-        }
-
-        .dashboard-card:hover::before {
-            transform: translateX(100%);
-        }
-
-        .dashboard-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(74, 144, 226, 0.2);
-        }
-
-        .dashboard-card h3 {
-            color: #4a90e2;
-            margin-bottom: 1rem;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .dashboard-card p {
-            color: #8892b0;
-            line-height: 1.6;
-        }
-
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            margin: 2rem 0;
-        }
-
-        .stat-card {
-            background: rgba(74, 144, 226, 0.1);
-            padding: 1.5rem;
-            border-radius: 10px;
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 2rem;
-            color: #4a90e2;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-label {
-            color: #8892b0;
-            font-size: 0.9rem;
-        }
-
-        .logout-btn {
-            background: rgba(255, 75, 75, 0.2);
-            color: #ff4b4b;
-            padding: 0.8rem 1.5rem;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .logout-btn:hover {
-            background: rgba(255, 75, 75, 0.3);
-            transform: translateY(-2px);
-        }
-    </style>
-</head>
-<body>
-    <div class="particles" id="particles"></div>
-    <div class="cyber-lines"></div>
-    <div class="hexagon-bg"></div>
-
-    <div class="container">
-        <div class="login-box">
-            <div class="logo-container">
-                <img src="https://cdn.discordapp.com/attachments/1256279490934472745/1326951688929673406/ipcs.jpg?ex=67849750&is=678345d0&hm=861b4c85054f1cfc1b892d75e914a6a46b276e2a3c8a0f63938754d9adf649d1&" alt="IPCS Logo">
-            </div>
-            <form class="login-form" id="loginForm">
-                <div class="form-group">
-                    <label>Identifiant</label>
-                    <input type="text" id="username" required autocomplete="off">
-                    <i class="icon fas fa-user"></i>
-                </div>
-                <div class="form-group">
-                    <label>Mot de passe</label>
-                    <input type="password" id="password" required>
-                    <i class="icon fas fa-lock"></i>
-                </div>
-                <button type="submit" class="submit-btn">
-                    <i class="fas fa-sign-in-alt"></i> Connexion
-                </button>
-                <div class="error-message" id="errorMessage">
-                    <i class="fas fa-exclamation-triangle"></i> Accès refusé. Vérifiez vos identifiants.
-                </div>
-            </form>
+          {selectedFile.type === 'texte' && (
+            <pre className={`overflow-auto p-4 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded`}>
+              {selectedFile.content || 'Contenu du fichier'}
+            </pre>
+          )}
         </div>
-    </div>
+      </div>
+    );
+  };
 
-    <div class="home-container" id="homeContainer">
-        <div class="home-header">
-            <h1 class="home-title">IPCS Dashboard</h1>
-            <button class="logout-btn" onclick="logout()">
-                <i class="fas fa-sign-out-alt"></i> Déconnexion
+  const renderCreationModal = () => (
+    <div className={`fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center ${isCreationModalOpen ? 'block' : 'hidden'}`}>
+      <div className={`${isDarkMode ? 'bg-gray-800 text-white' : 'bg-white'} rounded-lg p-6 w-[500px]`}>
+        <h2 className="text-2xl font-bold mb-4 flex items-center">
+          <Tag className="mr-2" /> Créer un nouveau contenu
+        </h2>
+        
+        {/* Titre du document */}
+        <div className="mb-4">
+          <label className="block mb-2 font-semibold">Titre du document</label>
+          <input 
+            type="text"
+            value={documentTitle}
+            onChange={(e) => setDocumentTitle(e.target.value)}
+            placeholder="Saisissez un titre pour votre document"
+            className={`w-full p-2 border rounded ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white'}`}
+          />
+        </div>
+        
+        {!selectedContentType && (
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            {contentTypes.map((contentType) => (
+              <button
+                key={contentType.type}
+                onClick={() => setSelectedContentType(contentType.type)}
+                className={`flex flex-col items-center p-4 border rounded transition duration-300 ${
+                  isDarkMode 
+                    ? 'border-gray-600 hover:bg-gray-700 hover:border-blue-500' 
+                    : 'hover:bg-gray-100 hover:border-blue-500'
+                } ${!documentTitle ? 'opacity-50 cursor-not-allowed' : ''}`}
+                disabled={!documentTitle}
+              >
+                {contentType.icon}
+                <span className="mt-2 capitalize">{contentType.type}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {selectedContentType === 'texte' && (
+          <div>
+            <p className="mb-2 text-sm text-gray-500">{contentTypes.find(ct => ct.type === 'texte').description}</p>
+            <textarea
+              value={textContent}
+              onChange={(e) => setTextContent(e.target.value)}
+              placeholder="Saisissez votre texte ici..."
+              className={`w-full h-40 p-2 border rounded ${isDarkMode ? 'bg-gray-700 border-gray-600' : 'bg-white'}`}
+            />
+            <div className="flex justify-between mt-4">
+              <button 
+                onClick={handleTextSubmit}
+                className={`bg-blue-500 text-white px-4 py-2 rounded ${isDarkMode ? 'hover:bg-blue-600' : 'hover:bg-blue-600'}`}
+                disabled={!textContent.trim()}
+              >
+                Enregistrer
+              </button>
+              <button 
+                onClick={() => {
+                  setSelectedContentType(null);
+                  setTextContent('');
+                }}
+                className={`${isDarkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded`}
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
+
+        {(selectedContentType === 'image' || selectedContentType === 'video' || selectedContentType === 'fichier') && (
+          <div>
+            <p className="mb-2 text-sm text-gray-500">
+              {contentTypes.find(ct => ct.type === selectedContentType).description}
+            </p>
+            <input 
+              type="file" 
+              ref={fileInputRef}
+              onChange={handleFileUpload}
+              accept={contentTypes.find(ct => ct.type === selectedContentType)?.acceptedFormats}
+              className="mb-4"
+            />
+            <div className="flex justify-between">
+              <button 
+                onClick={() => setSelectedContentType(null)}
+                className={`${isDarkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} px-4 py-2 rounded`}
+              >
+                Retour
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gradient-to-br from-gray-50 to-gray-100'} p-8`}>
+      <div className="container mx-auto max-w-6xl">
+        <header className="flex justify-between items-center mb-8">
+          <div className="flex items-center">
+            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
+              IPCS'host
+            </h1>
+            <span className="ml-4 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">Bêta</span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className={`p-2 rounded-full transition duration-300 ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'}`}
+            >
+              {isDarkMode ? <Sun className="text-yellow-400" /> : <Moon className="text-gray-700" />}
             </button>
-        </div>
+            <button 
+              onClick={() => setIsCreationModalOpen(true)}
+              className={`text-white px-4 py-2 rounded-full flex items-center transition duration-300 ${isDarkMode ? 'bg-blue-700 hover:bg-blue-800' : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700'}`}
+            >
+              <Plus className="mr-2" /> Créer
+            </button>
+          </div>
+        </header>
 
-        <div class="stats-container">
-            <div class="stat-card">
-                <div class="stat-value">24</div>
-                <div class="stat-label">Menaces Détectées</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">98%</div>
-                <div class="stat-label">Sécurité Système</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">156</div>
-                <div class="stat-label">Scans OSINT</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">12</div>
-                <div class="stat-label">Alertes Actives</div>
-            </div>
-        </div>
-
-        <div class="dashboard-grid">
-            <div class="dashboard-card">
-                <h3><i class="fas fa-search"></i> OSINT Tools</h3>
-                <p>Suite complète d'outils de recherche en sources ouvertes pour la collecte d'informations et l'investigation numérique.</p>
-            </div>
-            <div class="dashboard-card">
-                <h3><i class="fas fa-shield-alt"></i> Analyse de Vulnérabilités</h3>
-                <p>Scanner de vulnérabilités avancé avec détection automatique des failles de sécurité et recommandations.</p>
-            </div>
-            <div class="dashboard-card">
-                <h3><i class="fas fa-microscope"></i> Forensics</h3>
-                <p>Outils d'analyse forensique pour l'investigation numérique et la récupération de données.</p>
-            </div>
-            <div class="dashboard-card">
-                <h3><i class="fas fa-chart-line"></i> Monitoring</h3>
-                <p>Tableau de bord de surveillance en temps réel des systèmes et réseaux avec alertes personnalisables.</p>
-            </div>
-            <div class="dashboard-card">
-                <h3><i class="fas fa-robot"></i> Intelligence Artificielle</h3>
-                <p>Systèmes d'IA pour la détection des menaces et l'analyse comportementale des attaques.</p>
-            </div>
-            <div class="dashboard-card">
-                <h3><i class="fas fa-lock"></i> Cryptographie</h3>
-                <p>Outils de chiffrement et de sécurisation des communications avec les derniers standards.</p>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Animation des particules
-        function createParticle() {
-            const particles = document.getElementById('particles');
-            const particle = document.createElement('div');
-            particle.style.position = 'absolute';
-            particle.style.width = '2px';
-            particle.style.height = '2px';
-            particle.style.background = 'rgba(74, 144, 226, 0.5)';
-            particle.style.borderRadius = '50%';
-            
-            // Position aléatoire
-            const x = Math.random() * window.innerWidth;
-            const y = Math.random() * window.innerHeight;
-            particle.style.left = x + 'px';
-            particle.style.top = y + 'px';
-            
-            // Animation
-            particle.style.animation = `
-                moveParticle ${5 + Math.random() * 5}s linear infinite,
-                fadeParticle ${3 + Math.random() * 2}s ease-in-out infinite
-            `;
-            
-            particles.appendChild(particle);
-            
-            // Suppression après l'animation
-            setTimeout(() => {
-                particle.remove();
-            }, 10000);
-        }
-
-        // Style pour les animations des particules
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes moveParticle {
-                0% {
-                    transform: translateY(0) translateX(0);
-                }
-                100% {
-                    transform: translateY(-100vh) translateX(${Math.random() * 200 - 100}px);
-                }
-            }
-            
-            @keyframes fadeParticle {
-                0%, 100% { opacity: 0; }
-                50% { opacity: 1; }
-            }
-        `;
-        document.head.appendChild(style);
-
-        // Création continue de particules
-        setInterval(createParticle, 300);
-
-        // Gestion de la connexion
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const errorMessage = document.getElementById('errorMessage');
-            const loginContainer = document.querySelector('.container');
-
-            if (username === 'D3M0N' && password === 'demon12') {
-                errorMessage.style.display = 'none';
-                loginContainer.style.animation = 'fadeOut 0.5s ease forwards';
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {files.map((file) => (
+            <div 
+              key={file.id} 
+              onClick={() => handleFileView(file)}
+              className={`cursor-pointer rounded-lg shadow-lg transform transition duration-300 hover:scale-105 ${
+                isDarkMode 
+                  ? 'bg-gray-800 hover:bg-gray-700 border border-gray-700' 
+                  : 'bg-white hover:bg-gray-50 border'
+              }`}
+            >
+              <div className="p-4 flex items-center">
+                {file.type === 'image' && <Image className="mr-4 text-blue-500" />}
+                {file.type === 'video' && <Video className="mr-4 text-green-500" />}
+                {file.type === 'texte' && <FileText className="mr-4 text-purple-500" />}
+                {file.type === 'fichier' && <File className="mr-4 text-red-500" />}
                 
-                setTimeout(() => {
-                    loginContainer.style.display = 'none';
-                    document.getElementById('homeContainer').style.display = 'block';
-                }, 500);
-            } else {
-                errorMessage.style.display = 'block';
-                document.querySelector('.login-box').classList.add('shake');
-                setTimeout(() => {
-                    document.querySelector('.login-box').classList.remove('shake');
-                }, 500);
-            }
-        });
+                <div>
+                  <p className="font-bold text-lg mb-1">{file.title}</p>
+                  <p className="text-sm font-medium">{file.name}</p>
+                  <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {file.size} - {file.uploadDate}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-        // Fonction de déconnexion
-        function logout() {
-            document.getElementById('homeContainer').style.display = 'none';
-            document.querySelector('.container').style.display = 'flex';
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
-            document.querySelector('.container').style.animation = 'fadeIn 0.5s ease forwards';
-        }
+        {renderCreationModal()}
+        {renderFilePreview()}
+      </div>
+    </div>
+  );
+};
 
-        // Animation au survol des cartes
-        document.querySelectorAll('.dashboard-card').forEach(card => {
-            card.addEventListener('mouseover', () => {
-                card.style.transform = 'translateY(-5px)';
-                card.style.boxShadow = '0 10px 20px rgba(74, 144, 226, 0.2)';
-            });
-            
-            card.addEventListener('mouseout', () => {
-                card.style.transform = 'translateY(0)';
-                card.style.boxShadow = 'none';
-            });
-        });
-    </script>
-</body>
-</html>
+export default IPCSHost;
